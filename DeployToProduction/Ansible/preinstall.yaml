@@ -1,0 +1,31 @@
+---
+##################################################################
+# This playbok is designed to be ran from a jenkins pipeline
+# and assumes all associated files have been checked out
+# from a git repo during the 'checkout' stage
+##################################################################
+
+- name: Setup web server with Apache and MySQL, import database
+  hosts: servers
+  become: yes
+
+  vars:
+    sql_file_path: "/data"
+    sql_file: "BlogSite.sql"  # Should be in the `/data/` directory
+    code_base_src: "/var/lib/jenkins/workspace/AnsibleDeploy/files/"
+  tasks:
+      # No need to supress errors. The file module to create a folder is idempotent (unlike shell commands) so it won't fail if the folder already exists.
+    - name: Create the remote data folder
+      ansible.builtin.file:
+        path: /data
+        state: directory
+        mode: '0755'
+
+    - name: Copy SQL dump to data folder
+      copy:
+        src: "{{code_base_src}}/{{ sql_file }}"
+        dest: "{{ sql_file_path }}"
+      tags:
+        - copysqlfile
+      delegate_to: localhost
+

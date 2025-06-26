@@ -1,0 +1,24 @@
+---
+##################################################################
+# This playbok is designed to be ran from a jenkins pipeline
+# and assumes all associated files have been checked out
+# from a git repo during the 'checkout' stage
+##################################################################
+
+- name: Install MySQL and ensure it's running
+  hosts: servers
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Install default MySQL server 
+      ansible.builtin.apt:
+        name: default-mysql-server
+        state: present
+        update_cache: true
+
+    - name: Ensure MySQL service is started and enabled
+      ansible.builtin.service:
+        name: mysql
+        state: started
+        enabled: true

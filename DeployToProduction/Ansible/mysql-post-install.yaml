@@ -1,0 +1,89 @@
+---
+##################################################################
+# This playbok is designed to be ran from a jenkins pipeline
+# and assumes all associated files have been checked out
+# from a git repo during the 'checkout' stage
+##################################################################
+
+- name: Change MySQL root password - You have to love Debian 
+  hosts: servers
+  become: yes
+
+
+  vars:
+    mysql_root_password: "****"
+  tasks:
+    - name: Change the roo password for mysql/mariadb 
+      ansible.builtin.command: >
+        mysql -u root
+        -e "ALTER USER 'root'@'localhost'
+        IDENTIFIED BY '{{ mysql_root_password }}'; FLUSH PRIVILEGES;"
+      args:
+        creates: /root/.mysql_root_pw_set  # Prevents re-running
+      register: mysql_pw_change
+
+    - name: Create lock file to prevent re-running password setup
+      file:
+        path: /root/.mysql_root_pw_set
+        state: touch
+      when: mysql_pw_change.changed
+
+- name: Check if MySQL database exists
+  hosts: servers
+  become: true
+    #  gather_facts: false
+
+
+  vars:
+
+    mysql_root_user: "root"
+    mysql_root_password: "****"
+    db_name: "BlogSite"
+    db_user: "blog"
+    db_host: "localhost"
+    db_user_password: "****"
+    sql_file_path: "/data"
+    sql_file: "BlogSite.sql" 
+
+  tasks:
+    - name: Check for MySQL database
+      community.mysql.mysql_db:
+        name: "{{ db_name }}"
+        state: present
+        login_user: "{{ mysql_root_user }}"
+        login_password: "{{ mysql_root_password }}"
+      check_mode: true
+      register: db_check
+
+    - name: Create the DB when it does not exist
+      community.mysql.mysql_db:
+        name: "{{ db_name }}"
+        state: present
+        login_user: "{{ mysql_root_user }}"
+        login_password: "{{ mysql_root_password }}"         
+      when: db_check.failed is false
+
+    - name: Create database user if it doesn't exist
+      community.mysql.mysql_user:
+        login_user: "{{ mysql_root_user }}"
+        login_password: "{{ mysql_root_password }}"
+        name: "{{ db_user }}"
+        password: "{{db_user_password}}"
+        state: present
+        host: "{{ db_host }}"
+
+
+    - name: Workaround for the community.mysql.mysql_user module where it fails to set permissions for a user with 'no database selected'
+      ansible.builtin.command: "mysql -u{{ mysql_root_user }} -p{{ mysql_root_password }}  {{ db_name }} -e \"GRANT SELECT, UPDATE, DELETE, DROP, CREATE on {{ db_name }}.* to '{{db_user}}'@'{{db_host}}'; FLUSH PRIVILEGES\""
+
+    - name: Copy SQL dump file to server
+      copy:
+        src: "{{ sql_file_path }}/{{ sql_file }}"
+        dest: "{{ sql_file_path }}/{{ sql_file }}"
+      tags:
+        - copysql
+    - name: Import database
+      shell: "mysql {{ db_name }} -u{{ mysql_root_user }} -p{{ mysql_root_password}} < {{ sql_file_path }}/{{ sql_file }}"
+      tags:
+        - import
+

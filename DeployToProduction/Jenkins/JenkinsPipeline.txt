@@ -1,0 +1,38 @@
+pipeline {
+    agent any
+    
+    stages {
+        stage("provision server") {
+            steps {
+script {
+    def tfRoot = "/DevOps/PerlBlog/terraform"
+    sh """
+        cd ${tfRoot}
+        # Provision the EC2 Debian server
+        terraform apply --auto-approve 
+        echo "Waiting 60 secs for the EC2 instance to be ready..."
+        sleep 60
+        
+        # We need this because the ip is only known after the EC2 instance is up ans sometimes terraform is too fast
+        terraform apply --auto-approve > tfout
+        
+        # Extract and update IPs in ansible inventory file *** A little too hacky
+        bash ${tfRoot}/UpdateIP.sh
+        echo "Updated /etc/ansible/hosts with IP: \$ip"
+    """
+
+}
+            }
+        }
+        stage("Git checkout") {
+            steps {
+                  checkout scmGit(branches: [[name: '*/main']], extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'files'], perBuildTag()], userRemoteConfigs: [[url: 'https://github.com/scothost/PerlBlog.git']])            }
+        }
+        
+        stage("Execute Ansible Playbook") {
+            steps {
+                ansiblePlaybook playbook: '/etc/ansible/playbooks/blogsite.yaml'
+            }    
+        }    
+    }
+}

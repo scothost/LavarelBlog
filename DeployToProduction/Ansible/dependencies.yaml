@@ -1,0 +1,22 @@
+---
+##################################################################
+# This playbok is designed to be ran from a jenkins pipeline
+# and assumes all associated files have been checked out
+# from a git repo during the 'checkout' stage
+##################################################################
+
+- name: Install depenencies needed for mysql
+  hosts: servers
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Install packages
+      ansible.builtin.apt:
+        name:
+          - python3-pip
+          - python3-dev
+          - python3-mysqldb  
+        state: present
+        update_cache: true
+

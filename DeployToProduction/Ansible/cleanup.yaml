@@ -1,0 +1,32 @@
+- name: Clean Up
+  hosts: servers:localhost
+  become: yes
+  gather_facts: no
+  vars:
+    sql_file: "/data/BlogSite.sql"
+    archive_file: "/data/codebase.tar.gz"
+  tasks:
+    - name: Remove multiple local files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ sql_file }}"
+        - "{{ archive_file }}"
+
+
+    - name: Empty the deploy folder
+      ansible.builtin.find:
+        paths: "/var/lib/jenkins/workspace/AnsibleDeploy/SyncToDeploy/"
+        file_type: any
+        recurse: yes
+      register: folder_contents
+
+    - name: Remove the items
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ folder_contents.files }}"          
+      delegate_to: localhost 
+      no_log: yes  
+

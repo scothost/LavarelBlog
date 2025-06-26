@@ -1,0 +1,14 @@
+---
+##################################################################
+# This playbok is designed to be ran from a jenkins pipeline
+# and assumes all associated files have been checked out
+# from a git repo during the 'checkout' stage
+#################################################################
+
+- import_playbook: preinstall.yaml
+- import_playbook: apache.yaml
+- import_playbook: dependencies.yaml
+- import_playbook: mysql.yaml
+- import_playbook: mysql-post-install.yaml
+- import_playbook: sync-files.yaml
+- import_playbook: cleanup.yaml
